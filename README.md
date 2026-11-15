@@ -124,6 +124,10 @@ Responses also carry `X-Frame-Options: DENY` and `X-Content-Type-Options:
 nosniff`, idle connections are released after 30 s, and full file paths are
 redacted from the console request log.
 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
 ## Screenshot
 
 ![MusicBee Web player](images/musicbee_web.png)
