@@ -3,7 +3,8 @@ r"""
 MusicBee Web - listen to your MusicBee library & playlists from any browser.
 
 DISCLAIMER
-    This is a personal project. It is free for anyone to use at no cost, but it
+    This is a personal project, written with AI assistance under human guidance.
+    It is free for anyone to use at no cost, but it
     is provided "as is" without any warranty - the author takes no responsibility
     for it or for anything that happens while using it (including data loss,
     damage or security incidents). When running it, apply best-practice security

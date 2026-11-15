@@ -4,7 +4,7 @@ A small web player that lets you listen to your **existing MusicBee library and
 playlists** from any browser. It reads your MusicBee data files directly and
 **never modifies them**, so it's safe to run while MusicBee is open.
 
-> **Disclaimer:** This is a **personal project**. It is free for anyone to use at no cost, but it is provided **"as is"** without any warranty of any kind. The author takes no responsibility for this software or for anything that happens while using it — including data loss, damage or security incidents. When running it, please apply best-practice security measures: bind to `127.0.0.1` while testing, use `AUTH_PASSWORD` (or a reverse proxy / Cloudflare) on shared networks, and never expose the server directly to the internet.
+> **Disclaimer:** This is a **personal project**, written with AI assistance under human guidance. It is free for anyone to use at no cost, but it is provided **"as is"** without any warranty of any kind. The author takes no responsibility for this software or for anything that happens while using it — including data loss, damage or security incidents. When running it, please apply best-practice security measures: bind to `127.0.0.1` while testing, use `AUTH_PASSWORD` (or a reverse proxy / Cloudflare) on shared networks, and never expose the server directly to the internet.
 
 ## What it uses
 
