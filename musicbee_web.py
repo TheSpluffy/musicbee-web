@@ -19,6 +19,10 @@ Reads your existing MusicBee data:
   * Playlists : <data_dir>\Playlists\*.mbp  (MusicBee native binary format)
   * Library DB: <data_dir>\MusicBeeLibrary.mbl (for track durations)
 
+Tested with:
+  * MusicBee 3.6.9403 - Python 3.13.12
+  * MusicBee 3.7.9796 - Python 3.15.2
+
 Single file, Python standard library only.  Run:
 
     python musicbee_web.py                          # uses the CONFIG section below

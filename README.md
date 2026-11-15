@@ -6,6 +6,11 @@ playlists** from any browser. It reads your MusicBee data files directly and
 
 > **Disclaimer:** This is a **personal project**, written with AI assistance under human guidance. It is free for anyone to use at no cost, but it is provided **"as is"** without any warranty of any kind. The author takes no responsibility for this software or for anything that happens while using it — including data loss, damage or security incidents. When running it, please apply best-practice security measures: bind to `127.0.0.1` while testing, use `AUTH_PASSWORD` (or a reverse proxy / Cloudflare) on shared networks, and never expose the server directly to the internet.
 
+## Tested with
+
+* MusicBee **3.6.9403** — Python **3.13.12**
+* MusicBee **3.7.9796** — Python **3.15.2**
+
 ## What it uses
 
 | File | Purpose |
