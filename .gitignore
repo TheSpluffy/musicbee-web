@@ -1,0 +1,8 @@
+# chat/temp artifacts
+.unsloth_attachments/
+unsloth-tmp/
+*.7z
+*.zip
+# python
+__pycache__/
+*.pyc
