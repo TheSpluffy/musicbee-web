@@ -118,3 +118,7 @@ since that would expose the rest of your files over the network. Set it to
 Responses also carry `X-Frame-Options: DENY` and `X-Content-Type-Options:
 nosniff`, idle connections are released after 30 s, and full file paths are
 redacted from the console request log.
+
+## Screenshot
+
+![MusicBee Web player](images/musicbee_web.png)
