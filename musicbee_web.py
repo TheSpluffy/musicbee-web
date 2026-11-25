@@ -39,6 +39,8 @@ Options (override the corresponding CONFIG value):
     --music-root DIR [DIR ...]  music folders         (config: MUSIC_ROOTS)
     --auth-password PW   require a shared password    (config: AUTH_PASSWORD)
 """
+__version__ = "1.0.0"
+
 import argparse
 import base64
 import hmac
@@ -379,6 +381,36 @@ class MusicBeeWeb:
                 return out
         return None
 
+    def library_browse(self, kind):
+        """Distinct artist/album names in the Full Library with track counts."""
+        self._maybe_refresh()
+        key = 'artist' if kind == 'artists' else 'album'
+        unknown = 'Unknown Artist' if kind == 'artists' else 'Unknown Album'
+        agg = {}
+        for t in self.library_tracks:
+            name = (t[key] or '').strip() or unknown
+            agg[name] = agg.get(name, 0) + 1
+        return [{'name': n, 'count': c}
+                for n, c in sorted(agg.items(), key=lambda x: (x[0].lower(), x[0]))]
+
+    def library_tracks_by(self, kind, name):
+        """Full Library tracks matching one artist or album (case-insensitive)."""
+        self._maybe_refresh()
+        key = 'artist' if kind == 'artists' else 'album'
+        unknown = 'unknown artist' if kind == 'artists' else 'unknown album'
+        want = (name or '').strip().lower()
+        out = []
+        for t in self.library_tracks:
+            v = (t[key] or '').strip()
+            if (v.lower() if v else unknown) == want:
+                out.append({
+                    'title': t['title'], 'artist': t['artist'], 'album': t['album'],
+                    'dur': t['dur'], 'exists': t['exists'], 'ok': t['ok'], 'ext': t['ext'],
+                    'kind': t['kind'],
+                    'url': '/music?p=' + quote(t['path']),
+                })
+        return out or None
+
     def allowed_roots(self):
         """Folders the HTTP layer may stream from (realpath-resolved).
 
@@ -484,11 +516,27 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, UI_HTML.encode('utf-8'), 'text/html; charset=utf-8')
             elif u.path == '/api/playlists':
                 self._send(200, self.mbw.playlist_summary())
+            elif u.path == '/api/library':
+                kind = parse_qs(u.query).get('kind', [''])[0]
+                if kind not in ('artists', 'albums'):
+                    self._send(400, {'error': 'bad kind'})
+                else:
+                    self._send(200, self.mbw.library_browse(kind))
             elif u.path == '/api/tracks':
-                name = parse_qs(u.query).get('playlist', [''])[0]
-                tracks = self.mbw.playlist_tracks(name)
+                q = parse_qs(u.query)
+                artist = q.get('artist', [''])[0]
+                album = q.get('album', [''])[0]
+                if artist:
+                    tracks = self.mbw.library_tracks_by('artists', artist)
+                    err = 'artist not found'
+                elif album:
+                    tracks = self.mbw.library_tracks_by('albums', album)
+                    err = 'album not found'
+                else:
+                    tracks = self.mbw.playlist_tracks(q.get('playlist', [''])[0])
+                    err = 'playlist not found'
                 if tracks is None:
-                    self._send(404, {'error': 'playlist not found'})
+                    self._send(404, {'error': err})
                 else:
                     self._send(200, tracks)
             elif u.path == '/music':
@@ -601,9 +649,23 @@ body,button,.trow,input[type=range]{-webkit-tap-highlight-color:transparent;
 /* sidebar */
 aside{width:300px; flex:0 0 auto; background:var(--panel);
   border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0}
-#search{margin:10px; padding:8px 12px; border-radius:8px; border:1px solid var(--line);
-  background:var(--panel2); color:var(--text); outline:none; font-size:13px}
+/* 16px on the focusable text input: iOS auto-zooms the page when an input's
+   font is under 16px and often won't zoom back out after the keyboard closes */
+.searchwrap{position:relative; margin:10px}
+#search{width:100%; padding:8px 32px 8px 12px; border-radius:8px; border:1px solid var(--line);
+  background:var(--panel2); color:var(--text); outline:none; font-size:16px}
+#clearsearch{position:absolute; right:5px; top:50%; transform:translateY(-50%);
+  width:24px; height:24px; padding:0; border-radius:50%; border:none; background:transparent;
+  color:var(--dim); font-size:13px; line-height:1; display:flex; align-items:center;
+  justify-content:center}
+#clearsearch:hover{color:var(--text); background:rgba(139,147,167,.15)}
 #search:focus{border-color:var(--accent)}
+.tabs{display:flex; gap:4px; padding:10px 10px 0}
+.tab{flex:1 1 0; padding:7px 2px; font-size:12px; font-weight:600; letter-spacing:.3px;
+  background:var(--panel2); border:1px solid var(--line); color:var(--dim);
+  border-radius:8px 8px 0 0; cursor:pointer}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--accent); border-color:var(--accent); background:rgba(77,163,255,.10)}
 #pllist{flex:1 1 auto; overflow-y:auto; padding:0 6px 6px}
 .pl{padding:8px 12px; border-radius:8px; cursor:pointer; display:flex;
   justify-content:space-between; gap:8px; align-items:center; margin-bottom:2px}
@@ -616,6 +678,8 @@ aside{width:300px; flex:0 0 auto; background:var(--panel);
 .badge.miss{background:rgba(255,107,107,.15); color:var(--bad)}
 .badge.smart{background:rgba(126,224,163,.15); color:var(--accent2)}
 #status{padding:8px 12px; border-top:1px solid var(--line); color:var(--dim); font-size:11px}
+#viewname{padding:8px 14px; font-size:12px; color:var(--dim); background:var(--panel);
+  border-bottom:1px solid var(--line); flex:0 0 auto}
 /* track list */
 section{flex:1 1 auto; display:flex; flex-direction:column; min-width:0; min-height:0}
 #thead,.trow{display:grid; grid-template-columns:44px minmax(220px,3fr) minmax(140px,2fr)
@@ -775,21 +839,30 @@ input[type=range]:hover::-moz-range-thumb{transform:scale(1.2)}
 </head>
 <body>
 <header>
-  <button id="menubtn" class="pbtn" title="Playlists"><svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+  <button id="menubtn" class="pbtn" title="Browse"><svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
   <span class="logo">🎵 MusicBee <b>Web</b></span>
   <span class="sub">your library &amp; playlists, in the browser</span>
 </header>
 <div id="main">
   <aside id="sidebar">
-    <input id="search" placeholder="Filter playlists…" autocomplete="off">
+    <div class="tabs">
+      <button class="tab on" data-tab="playlists">Playlists</button>
+      <button class="tab" data-tab="artists">Artists</button>
+      <button class="tab" data-tab="albums">Albums</button>
+    </div>
+    <div class="searchwrap">
+      <input id="search" placeholder="Filter playlists…" autocomplete="off">
+      <button id="clearsearch" class="hide" title="Clear search" aria-label="Clear search">✕</button>
+    </div>
     <div id="pllist"></div>
     <div id="status">loading…</div>
   </aside>
   <section>
+    <div id="viewname" class="hidden"></div>
     <div id="thead">
       <div>#</div><div>Title</div><div class="h-artist">Artist</div><div class="h-album">Album</div><div style="text-align:right">Time</div>
     </div>
-    <div id="tlist"><div id="empty">Pick a playlist on the left — double-click a track to play</div></div>
+    <div id="tlist"><div id="empty">Pick a playlist, artist or album on the left — double-click a track to play</div></div>
   </section>
 </div>
 <div id="scrim" class="hidden"></div>
@@ -848,7 +921,7 @@ input[type=range]:hover::-moz-range-thumb{transform:scale(1.2)}
 <script>
 const $=id=>document.getElementById(id);
 const media=$('media');
-let playlists=[], tracks=[], queue=[], pos=-1, shuffle=false, repeat=0, videoOn=true, seeking=false;
+let tracks=[], queue=[], pos=-1, shuffle=false, repeat=0, videoOn=true, seeking=false;
 const IS_TOUCH = window.matchMedia && matchMedia('(pointer:coarse)').matches;
 
 function fmt(s){ if(s==null||isNaN(s)) return '–:––'; s=Math.max(0,Math.round(s));
@@ -945,36 +1018,68 @@ function setDrawer(open){ drawer.classList.toggle('open',!!open);
   $('scrim').classList.toggle('hidden',!open); }
 $('menubtn').onclick=()=>setDrawer(!drawer.classList.contains('open'));
 $('scrim').onclick=()=>setDrawer(false);
-if(IS_TOUCH) $('empty').textContent='Tap the menu button (top-left) to pick a playlist, then tap a track to play';
+if(IS_TOUCH) $('empty').textContent='Tap the menu button (top-left) to pick a playlist, artist or album, then tap a track to play';
 $('stage').addEventListener('click',e=>{ if(e.target===$('stage')) hideStage(); });
 
-async function loadPlaylists(){
-  const r=await fetch('/api/playlists'); playlists=await r.json(); renderPls();
+let curTab='playlists', curView=null, tabData={playlists:null,artists:null,albums:null};
+function setTab(tab){
+  if(!['playlists','artists','albums'].includes(tab)) return;
+  curTab=tab; curView=null; $('viewname').classList.add('hidden');
+  try{ localStorage.setItem('mbweb.tab',tab); }catch(e){}
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  $('search').placeholder='Filter '+ (tab==='playlists'?'playlists':tab) +'…';
+  loadTab();
 }
-function renderPls(){
+async function loadTab(){
+  if(!tabData[curTab]){
+    const url=curTab==='playlists'?'/api/playlists':'/api/library?kind='+curTab;
+    try{ tabData[curTab]=await (await fetch(url)).json(); }
+    catch(e){ toast('Could not load '+curTab); return; }
+  }
+  renderList();
+}
+function renderList(){
   const q=$('search').value.toLowerCase();
-  $('pllist').innerHTML='';
-  for(const p of playlists){
-    if(q && !p.name.toLowerCase().includes(q)) continue;
-    const d=document.createElement('div');
-    d.className='pl'+(curName===p.name?' active':'');
-    let ct=p.count?p.count+' tracks':'';
-    if(p.smart) ct='<span class="badge smart">smart</span>';
-    else if(p.missing) ct+=` <span class="badge miss">${p.missing} missing</span>`;
-    d.innerHTML=`<span class="nm"></span><span class="ct">${ct}</span>`;
-    d.querySelector('.nm').textContent=p.name;
-    if(!p.smart){ d.onclick=()=>openPlaylist(p.name); }
-    else { d.title='Smart/auto playlist – only playable inside MusicBee';
-           d.onclick=()=>toast('Auto-playlists can\u2019t be resolved outside MusicBee'); }
-    $('pllist').appendChild(d);
+  const box=$('pllist'); box.innerHTML='';
+  if(curTab==='playlists'){
+    for(const p of (tabData.playlists||[])){
+      if(q && !p.name.toLowerCase().includes(q)) continue;
+      const d=document.createElement('div');
+      d.className='pl'+(curView&&curView.type==='playlists'&&curView.name===p.name?' active':'');
+      let ct=p.count?p.count+' tracks':'';
+      if(p.smart) ct='<span class="badge smart">smart</span>';
+      else if(p.missing) ct+=` <span class="badge miss">${p.missing} missing</span>`;
+      d.innerHTML=`<span class="nm"></span><span class="ct">${ct}</span>`;
+      d.querySelector('.nm').textContent=p.name;
+      if(!p.smart){ d.onclick=()=>openPlaylist(p.name); }
+      else { d.title='Smart/auto playlist – only playable inside MusicBee';
+             d.onclick=()=>toast("Auto-playlists can't be resolved outside MusicBee"); }
+      box.appendChild(d);
+    }
+  } else {
+    for(const n of (tabData[curTab]||[])){
+      if(q && !n.name.toLowerCase().includes(q)) continue;
+      const d=document.createElement('div');
+      d.className='pl'+(curView&&curView.type===curTab&&curView.name===n.name?' active':'');
+      d.innerHTML=`<span class="nm"></span><span class="ct">${n.count} tracks</span>`;
+      d.querySelector('.nm').textContent=n.name;
+      d.onclick=()=>openBrowse(curTab,n.name);
+      box.appendChild(d);
+    }
+  }
+  updateStatus();
+}
+function updateStatus(){
+  const s=$('status');
+  if(curTab==='playlists'){
+    const pl=tabData.playlists||[];
+    s.textContent=pl.length+' playlists · '+pl.reduce((a,p)=>a+(p.count||0),0)+' entries';
+  } else {
+    s.textContent=(tabData[curTab]||[]).length+' '+(curTab==='artists'?'artists':'albums');
   }
 }
-let curName=null;
-async function openPlaylist(name){
-  curName=name; renderPls();
-  const r=await fetch('/api/tracks?playlist='+encodeURIComponent(name));
-  if(!r.ok){ toast('Could not load playlist'); return; }
-  tracks=await r.json(); queue=tracks.map((_,i)=>i); pos=-1;
+function renderTracks(tr){
+  tracks=tr; queue=tracks.map((_,i)=>i); pos=-1;
   const list=$('tlist'); list.innerHTML='';
   tracks.forEach((t,i)=>{
     const row=document.createElement('div');
@@ -994,6 +1099,24 @@ async function openPlaylist(name){
       row.ondblclick=()=>playAt(i); }
     list.appendChild(row);
   });
+}
+async function openPlaylist(name){
+  curView={type:'playlists',name};
+  $('viewname').textContent=name; $('viewname').classList.remove('hidden');
+  renderList();
+  const r=await fetch('/api/tracks?playlist='+encodeURIComponent(name));
+  if(!r.ok){ toast('Could not load playlist'); return; }
+  renderTracks(await r.json());
+  setDrawer(false);
+}
+async function openBrowse(kind,name){
+  curView={type:kind,name};
+  $('viewname').textContent=(kind==='artists'?'Artist — ':'Album — ')+name;
+  $('viewname').classList.remove('hidden');
+  renderList();
+  const r=await fetch('/api/tracks?'+(kind==='artists'?'artist':'album')+'='+encodeURIComponent(name));
+  if(!r.ok){ toast('Could not load tracks'); return; }
+  renderTracks(await r.json());
   setDrawer(false);
 }
 function playAt(i){
@@ -1112,7 +1235,10 @@ $('vol').addEventListener('input',e=>{ media.volume=e.target.value/100; sliderFi
   try{ const s=parseInt(localStorage.getItem('mbweb.vol.v1'),10);
     if(!isNaN(s)) v=Math.max(0,Math.min(100,s)); }catch(e){}
   media.volume=v/100; $('vol').value=v; sliderFill($('vol')); $('voltip').textContent=v+'%'; })();
-$('search').addEventListener('input',renderPls);
+function syncClear(){ $('clearsearch').classList.toggle('hide',!$('search').value); }
+$('search').addEventListener('input',()=>{ renderList(); syncClear(); });
+$('clearsearch').onclick=e=>{ e.preventDefault(); const s=$('search');
+  if(s.value){ s.value=''; renderList(); syncClear(); s.focus(); } };
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){ if(!$('stage').classList.contains('hidden')) hideStage(); else setDrawer(false); return; }
   if(e.target.tagName==='INPUT' && e.target.id!=='seek') return;
@@ -1121,11 +1247,13 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='ArrowLeft'){ media.currentTime=Math.max(0,media.currentTime-10); }
 });
 
-loadPlaylists().then(()=>{
-  const s=$('status');
-  const tot=playlists.reduce((a,p)=>a+(p.count||0),0);
-  s.textContent=playlists.length+' playlists · '+tot+' entries';
-});
+(function initTabs(){
+  let t='playlists';
+  try{ const s=localStorage.getItem('mbweb.tab');
+    if(['playlists','artists','albums'].includes(s)) t=s; }catch(e){}
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+  setTab(t);
+})();
 </script>
 </body>
 </html>
@@ -1254,7 +1382,7 @@ def main():
 
     auth_password = args.auth_password if args.auth_password is not None else AUTH_PASSWORD
 
-    print("MusicBee Web")
+    print(f"MusicBee Web {__version__}")
     print(f"  data dir     : {data_dir}")
     print(f"  playlists    : {playlists_dir}")
     for r in music_roots:

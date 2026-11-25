@@ -52,6 +52,9 @@ python musicbee_web.py --data-dir "C:\path\to\MusicBee" --playlists-dir "C:\path
 
 * All your normal `.mbp` playlists, plus a built-in **★ Full Library** view
   (every audio file under your Music folder)
+* **Tabs to browse by Playlists / Artists / Albums** (top-left of the sidebar) —
+  click an artist or album to list all of its tracks; the search box filters
+  whatever tab is active, and your last-used tab is remembered
 * **Double-click** a track to play it (single click just selects/highlights)
 * Play / pause / next / previous / shuffle / **repeat** (off → one → all),
   seek bar, volume, keyboard shortcuts (Space = play/pause, ←/→ = seek 10 s,
@@ -128,6 +131,13 @@ redacted from the console request log.
 
 This project is licensed under the [MIT License](LICENSE).
 
-## Screenshot
+## Screenshots
 
-![MusicBee Web player](images/musicbee_web.png)
+![MusicBee Web - desktop view](images/Main_1.png)
+
+<table>
+  <tr>
+    <td align="center"><img src="images/Phone_1.png" width="45%" alt="Mobile view - track list with player bar"></td>
+    <td align="center"><img src="images/Phone_2.png" width="45%" alt="Mobile view - playlist drawer with Playlists, Artists and Albums tabs"></td>
+  </tr>
+</table>
